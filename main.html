@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCQ Quiz</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1>Welcome to the Quiz</h1>
+        <label for="username">Enter Your Name:</label>
+        <input type="text" id="username" placeholder="Your Name">
+        <button onclick="showCategoryMenu()">Continue ⏭</button>
+    </div>
+
+    <div id="category-menu" style="display: none;">
+        <h2>Select a Category</h2>
+        <button onclick="startQuiz('ifElseStatements')">If Else Statements</button>
+        <button onclick="startQuiz('forLoops')">For Loops</button>
+        <button onclick="startQuiz('whileLoops')">While Loops</button>
+    </div>
+
+    <div id="quiz-container" style="display: none;">
+        <h2 id="question"></h2>
+        <div id="options"></div>
+        <p id="timer">Time Left: 20s</p>
+        <button onclick="nextQuestion()">Next ➡</button>
+        <button onclick="showCategoryMenu()">Choose Another Category ↩</button>
+        <p id="explanation" style="display: none;"></p>
+        <p id="score"></p>
+    </div>
+
+    <div id="end-menu" style="display: none;">
+        <h2>Quiz Complete! 🥳 </h2>
+        <p id="final-score"></p>
+        <button onclick="showCategoryMenu()">Choose Another Category ↩</button>
+        <button class="restart-button" onclick="location.reload()">Restart 🔄</button>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
