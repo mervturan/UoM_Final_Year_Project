@@ -12,11 +12,17 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function loadQuestion() {
+    // Clear any existing timer and reset
     clearInterval(timer);
     timeLeft = 20;
     document.getElementById("timer").textContent = `Time Left: ${timeLeft}s`;
     timer = setInterval(updateTimer, 1000);
 
+    // Reset explanation and options
+    document.getElementById("explanation").textContent = "";
+    document.getElementById("explanation").style.display = "none";
+      
+    // Load current question    
     let questionData = questions[selectedCategory][currentQuestionIndex];
     document.getElementById("question").textContent = questionData.question;
     let optionsContainer = document.getElementById("options");
@@ -33,7 +39,15 @@ function loadQuestion() {
         });
     } else if (questionData.type === "reorder") {
         // Reorder type question
-        let shuffledOptions = [...questionData.options].sort(() => Math.random() - 0.5);
+        // Get the original options array
+        const originalOptions = questionData.options;
+
+        // Create a copy of the array to avoid modifying the original
+        const optionsCopy = Array.from(originalOptions);
+
+        // Shuffle the copied array using Fisher-Yates algorithm
+        // (the current method using Math.random() - 0.5 is a simple but less ideal shuffle)
+        const shuffledOptions = optionsCopy.sort(() => Math.random() - 0.5);
 
         let reorderList = document.createElement("div");
         reorderList.className = "reorder-list";
@@ -130,19 +144,37 @@ function updateTimer() {
 
 function showCorrectAnswer() {
     let questionData = questions[selectedCategory][currentQuestionIndex];
-    let options = document.getElementsByClassName("option");
-
-    for (let i = 0; i < options.length; i++) {
-        if (options[i].textContent === questionData.answer) {
-            options[i].classList.add("correct");
+    
+    if (questionData.type === "select") {
+        let options = document.getElementsByClassName("option");
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].textContent === questionData.answer) {
+                options[i].classList.add("correct");
+            }
+            options[i].onclick = null; // Disable clicking other answers
         }
-        options[i].onclick = null; // Disable clicking other answers
+    } else if (questionData.type === "reorder") {
+        // Display the correct order for reorder questions
+        const reorderList = document.querySelector(".reorder-list");
+        if (reorderList) {
+            reorderList.innerHTML = "";
+            
+            questionData.answer.forEach((item) => {
+                let div = document.createElement("div");
+                div.textContent = item;
+                div.className = "reorder-item correct-order";
+                reorderList.appendChild(div);
+            });
+            
+            // Disable submit button
+            const submitBtn = document.querySelector(".submit-btn");
+            if (submitBtn) submitBtn.disabled = true;
+        }
     }
 
     document.getElementById("explanation").textContent = questionData.explanation;
     document.getElementById("explanation").style.display = "block";
 }
-
 
 function nextQuestion() {
     currentQuestionIndex++;
@@ -199,54 +231,40 @@ function drop(e) {
 }
 
 function getDropPosition(container, y) {
-    return [...container.querySelectorAll(".reorder-item:not(.dragging)")].reduce((closest, child) => {
+    // Get all reorder items except the one being dragged
+    const items = container.querySelectorAll(".reorder-item:not(.dragging)");
+    
+    // Convert NodeList to Array
+    const itemsArray = Array.from(items);
+    
+    // Initial value for reduce
+    const initialValue = { 
+        offset: Number.NEGATIVE_INFINITY,
+        element: null
+    };
+    
+    // Find the closest element using reduce
+    const result = itemsArray.reduce((closest, child) => {
+        // Calculate the position of this element
         const box = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
-        return offset < 0 && offset > closest.offset ? { offset, element: child } : closest;
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-
-function checkReorderAnswer(correctOrder, explanation) {
-    clearInterval(timer);
+        
+        // Check if this element is a better match than our previous closest
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, initialValue);
     
-    // Get the current order of items
-    const items = document.querySelectorAll(".reorder-item");
-    const userOrder = Array.from(items).map(item => item.textContent);
-    
-    // Check if user's order matches the correct order
-    const isCorrect = userOrder.every((item, index) => item === correctOrder[index]);
-    
-    if (isCorrect) {
-        score++;
-    }
-    
-    // Display the correct order
-    const reorderList = document.querySelector(".reorder-list");
-    reorderList.innerHTML = "";
-    
-    correctOrder.forEach((item, index) => {
-        let div = document.createElement("div");
-        div.textContent = item;
-        div.className = "reorder-item correct-order";
-        reorderList.appendChild(div);
-    });
-    
-    // Disable submit button
-    document.querySelector(".submit-btn").disabled = true;
-    
-    // Show explanation
-    document.getElementById("explanation").textContent = explanation;
-    document.getElementById("explanation").style.display = "block";
-    
-    // setTimeout(nextQuestion, 3000);
+    // Return just the element property from our result
+    return result.element;
 }
 
 function checkAnswer(selected, correct, explanation) {
-    clearInterval(timer);
+    clearInterval(timer); // Stop the timer
     
     let options = document.getElementsByClassName("option");
-
     for (let i = 0; i < options.length; i++) {
         if (options[i].textContent === correct) {
             options[i].classList.add("correct");
@@ -263,8 +281,36 @@ function checkAnswer(selected, correct, explanation) {
 
     document.getElementById("explanation").textContent = explanation;
     document.getElementById("explanation").style.display = "block";
+}
 
-    setTimeout(nextQuestion, 3000);
+function checkReorderAnswer(correctOrder, explanation) {
+    clearInterval(timer);
+    
+    const items = document.querySelectorAll(".reorder-item");
+    const userOrder = Array.from(items).map(item => item.textContent);
+    
+    const isCorrect = userOrder.every((item, index) => item === correctOrder[index]);
+    
+    if (isCorrect) {
+        score++;
+    }
+    
+    const reorderList = document.querySelector(".reorder-list");
+    reorderList.innerHTML = "";
+    
+    correctOrder.forEach((item) => {
+        let div = document.createElement("div");
+        div.textContent = item;
+        div.className = "reorder-item correct-order";
+        reorderList.appendChild(div);
+    });
+    
+    // Disable submit button
+    const submitBtn = document.querySelector(".submit-btn");
+    if (submitBtn) submitBtn.disabled = true;
+    
+    document.getElementById("explanation").textContent = explanation;
+    document.getElementById("explanation").style.display = "block";
 }
 
 const questions = {
@@ -348,7 +394,7 @@ const questions = {
                 "The code prints numbers 5 to 1, but \"Loop completed\" never runs"
             ],
             answer: "The code prints numbers 5 to 1, and \"Loop completed\" only runs if the loop completes normally",
-            explanation: "The loop prints 5, 4, 3, 2, 1, and \"Loop completed\". The else block executes when the loop condition becomes False naturally.",
+            explanation: "The loop prints 5, 4, 3, 2, 1, and \"Loop completed\". The else block executes when the loop condition becomes False.",
             type: "select"
         },
         {
@@ -411,11 +457,11 @@ const questions = {
             options: [
                 "n = 6  # Number of Fibonacci numbers to generate",
                 "a, b = 0, 1",
-                "for _ in range(n):",
+                "for i in range(n):",
                 "print(a, end=\" \")",
                 "a, b = b, a + b"
             ],
-            answer: ["n = 6  # Number of Fibonacci numbers to generate", "a, b = 0, 1", "for _ in range(n):", "print(a, end=\" \")", "a, b = b, a + b"],
+            answer: ["n = 6  # Number of Fibonacci numbers to generate", "a, b = 0, 1", "for i in range(n):", "print(a, end=\" \")", "a, b = b, a + b"],
             explanation: "Define how many Fibonacci numbers to generate, initialize first two values, loop n times, print current value, update variables for next iteration.",
             type: "reorder"
         }
@@ -424,6 +470,7 @@ const questions = {
 
 
 function showCategoryMenu() {
+    // Hide any other screens than the cetagory menu
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("category-menu").style.display = "block";
     document.getElementById("quiz-container").style.display = "none";
@@ -434,15 +481,18 @@ function selectCategory(category) {
     selectedCategory = category;
     currentQuestionIndex = 0;
     score = 0;
+
     document.getElementById("category-menu").style.display = "none";
     document.getElementById("quiz-container").style.display = "block";
-    document.getElementById("end-menu").style.display = "none"; // Hide end screen
-    document.getElementById("score-display").style.display = "none"; // Hide score message
+    document.getElementById("end-menu").style.display = "none"; 
+    document.getElementById("score-display").style.display = "none"; 
     loadQuestion();
 }
 
 function returnToCategories() {
     clearInterval(timer); // Clear any existing timer
+
+    // Hide other screens and show category menu container
     document.getElementById("quiz-container").style.display = "none";
     document.getElementById("end-menu").style.display = "none";
     document.getElementById("category-menu").style.display = "block";
@@ -466,11 +516,11 @@ function startQuiz(category) {
     document.getElementById("category-menu").style.display = "none";
     document.getElementById("end-menu").style.display = "none";
     document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("quiz-container").style.display = "block";
 
     selectedCategory = category;
     currentQuestionIndex = 0;
     score = 0;
-    document.getElementById("quiz-container").style.display = "block";
 
     loadQuestion();
 }
@@ -498,8 +548,16 @@ function loadQuestion() {
             div.onclick = () => checkAnswer(option, questionData.answer, questionData.explanation);
             optionsContainer.appendChild(div);
         });
-    } else if (questionData.type === "reorder") {
-        let shuffledOptions = [...questionData.options].sort(() => Math.random() - 0.5);
+    } 
+    
+    else if (questionData.type === "reorder") {
+        // Get the original options array
+        const originalOptions = questionData.options;
+
+        // Create a copy of the array to avoid modifying the original
+        const optionsCopy = Array.from(originalOptions);
+
+        const shuffledOptions = optionsCopy.sort(() => Math.random() - 0.5);
 
         let reorderList = document.createElement("div");
         reorderList.className = "reorder-list";
